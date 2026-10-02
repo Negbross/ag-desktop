@@ -1,0 +1,17 @@
+[package]
+name = "ag-desktop"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.6.7", features = ["derive"] }
+walkdir = "2.5.0"
+sysinfo = "0.38.4"
+anyhow = "1.0.104"
+windows = { version = "0.62.2", features = [
+    "Win32_Media_Audio",
+    "Win32_Media_Audio_Endpoints",
+    "Win32_System_Com",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_Com_StructuredStorage"
+] }
