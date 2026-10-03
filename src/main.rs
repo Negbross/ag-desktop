@@ -1,8 +1,9 @@
 mod core;
+mod llm_bridge;
 
 use clap::{Parser, Subcommand};
-
-use crate::core::{ process, window, volume, sysinfo, fs };
+use ag_desktop::execute;
+use crate::core::{process, window, volume, sysinfo, fs, input };
 
 #[derive(Parser)]
 struct Cli {
@@ -37,15 +38,34 @@ enum Cmd {
     Minimize { hwnd: isize },
     Maximize { hwnd: isize },
     Close { hwnd: isize },
+
+    /// Gerakin mouse ke koordinat absolut
+    MoveMouse { x: i32, y: i32 },
+    /// Klik mouse
+    Click { #[arg(default_value = "left")] button: String },
+    /// Scroll vertikal (+ ke atas, - ke bawah)
+    Scroll { amount: i32 },
+    /// Ketik teks
+    Type { text: String },
+    /// Tekan key khusus (enter/tab/escape/backspace/space)
+    Key { name: String },
+
+    /// LLM Agent
+    Ask { instruction: String }
 }
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     match Cli::parse().cmd {
         Cmd::Ls { path, depth } => fs::list(&path, depth),
         Cmd::Find { path, pattern } => fs::find(&path, &pattern),
-        Cmd::Ps => process::list_process(),
+        Cmd::Ps => { for p in process::list_process()? { println!("{:?}", p); } Ok(()) },
         Cmd::Kill { pid } => process::kill_process(pid),
-        Cmd::Sys => sysinfo::overview(),
+        Cmd::Sys => {
+            let overview = sysinfo::overview_collect()?;
+            println!("{:?}", overview);
+            Ok(())
+        },
         Cmd::VolGet => { println!("{:.0}%", volume::get_volume()?); Ok(()) }
         Cmd::VolSet { percent } => volume::set_volume(percent),
         Cmd::Mute => volume::mute_volume(true),
@@ -60,5 +80,16 @@ fn main() -> anyhow::Result<()> {
         Cmd::Minimize { hwnd } => window::minimize(hwnd),
         Cmd::Maximize { hwnd } => window::maximize(hwnd),
         Cmd::Close { hwnd } => window::close(hwnd),
+
+        Cmd::MoveMouse { x, y } => input::move_mouse(x, y),
+        Cmd::Click { button } => input::click(&button),
+        Cmd::Scroll { amount } => input::scroll(amount),
+        Cmd::Type { text } => input::type_text(&text),
+        Cmd::Key { name } => input::key_press(&name),
+
+        Cmd::Ask { instruction } => {
+            llm_bridge::agent_loop(&instruction, 10).await?;
+            Ok(())
+        }
     }
 }
